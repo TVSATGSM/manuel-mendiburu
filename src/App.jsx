@@ -1,349 +1,526 @@
 
-import { useState } from "react";
-import {
-  Menu, X, Home, School, BookOpen, Newspaper,
-  Images, MapPin, Phone, Mail, ChevronRight,
-  CalendarDays, GraduationCap, ArrowUpRight
-} from "lucide-react";
-import "./App.css";
+import { useEffect, useState } from "react";
+import IMAGES from "./images";
 
-const noticias = [
+const initialNews = [
   {
-    fecha: "01 NOV 2026",
-    categoria: "Institucional",
-    titulo: "Bienvenidos a nuestra comunidad educativa",
-    descripcion:
-      "Conoce nuestra institución, sus actividades y el compromiso con la formación de nuestros estudiantes.",
-    imagen:
-      "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=900"
-  },
-  {
-    fecha: "01 NOV 2026",
-    categoria: "Educación",
-    titulo: "Aprendizaje y formación integral",
-    descripcion:
-      "Promovemos experiencias educativas que fortalecen los conocimientos, habilidades y valores.",
-    imagen:
-      "https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=900"
-  },
-  {
-    fecha: "01 NOV 2026",
-    categoria: "Comunidad",
-    titulo: "Una comunidad que crece unida",
-    descripcion:
-      "La participación de estudiantes, docentes y familias fortalece nuestra identidad institucional.",
-    imagen:
-      "https://images.unsplash.com/photo-1529390079861-591de354faf5?w=900"
+    id: "sample-1",
+    title: "Bienvenidos a nuestra institución educativa",
+    summary: "Un espacio para aprender, crecer y construir un mejor futuro.",
+    body: "Próximamente compartiremos por este medio las noticias y comunicados oficiales de nuestra comunidad educativa.",
+    created_at: new Date().toISOString(),
+    image_url: ""
   }
 ];
 
-function App() {
-  const [menuOpen, setMenuOpen] = useState(false);
+// ENCABEZADO
+function Header() {
+  return (
+    <header className="header">
+      <a className="brand" href="#inicio">
+        <img
+          src={IMAGES.logo}
+          alt="Insignia de la Institución Educativa Manuel de Endiburu"
+          className="brand-logo"
+        />
 
-  const cerrarMenu = () => setMenuOpen(false);
+        <div>
+          <strong>MANUEL DE MENDIBURU</strong>
+          <span>INSTITUCIÓN EDUCATIVA</span>
+        </div>
+      </a>
 
-  const enlaces = [
-    ["Inicio", "#inicio"],
-    ["Nosotros", "#nosotros"],
-    ["Académico", "#academico"],
-    ["Noticias", "#noticias"],
-    ["Galería", "#galeria"],
-    ["Contacto", "#contacto"]
-  ];
+      <nav>
+        <a href="#inicio">Inicio</a>
+        <a href="#nosotros">Nosotros</a>
+        <a href="#propuesta">Propuesta educativa</a>
+        <a href="#galeria">Galería</a>
+        <a href="#noticias">Noticias</a>
+        <a href="#contacto">Contacto</a>
+      </nav>
+    </header>
+  );
+}
+
+// PANEL DE ADMINISTRACIÓN
+function Admin() {
+  const [news, setNews] = useState([]);
+  const [form, setForm] = useState({
+    title: "",
+    summary: "",
+    body: "",
+    image_url: ""
+  });
+  const [message, setMessage] = useState("Cargando publicaciones…");
+
+  async function load() {
+    try {
+      const res = await fetch("/api/admin/news");
+
+      if (!res.ok) {
+        throw new Error(
+          "No se pudo acceder. Verifica tu sesión de Cloudflare Access."
+        );
+      }
+
+      const data = await res.json();
+      setNews(data.news || []);
+      setMessage("");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function publish(e) {
+    e.preventDefault();
+
+    try {
+      setMessage("Publicando…");
+
+      const res = await fetch("/api/admin/news", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(form)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMessage(data.error || "No se pudo publicar.");
+        return;
+      }
+
+      setForm({
+        title: "",
+        summary: "",
+        body: "",
+        image_url: ""
+      });
+
+      setMessage("Publicación creada correctamente.");
+      await load();
+    } catch {
+      setMessage("Error de conexión al publicar.");
+    }
+  }
+
+  async function remove(id) {
+    if (!confirm("¿Eliminar esta publicación?")) return;
+
+    try {
+      const res = await fetch(`/api/admin/news/${id}`, {
+        method: "DELETE"
+      });
+
+      if (res.ok) {
+        setMessage("Publicación eliminada.");
+        await load();
+      } else {
+        setMessage("No se pudo eliminar la publicación.");
+      }
+    } catch {
+      setMessage("Error de conexión al eliminar.");
+    }
+  }
+
+  return (
+    <main className="admin-page">
+      <div className="admin-top">
+        <a href="/">← Volver al sitio</a>
+        <span>Panel de administración</span>
+      </div>
+
+      <h1>Administrar noticias</h1>
+
+      <p className="muted">
+        Publica comunicados y novedades para la comunidad educativa.
+      </p>
+
+      <form className="admin-form" onSubmit={publish}>
+        <label>
+          Título
+          <input
+            required
+            maxLength="160"
+            value={form.title}
+            onChange={e =>
+              setForm({ ...form, title: e.target.value })
+            }
+          />
+        </label>
+
+        <label>
+          Resumen
+          <input
+            required
+            maxLength="300"
+            value={form.summary}
+            onChange={e =>
+              setForm({ ...form, summary: e.target.value })
+            }
+          />
+        </label>
+
+        <label>
+          Contenido
+          <textarea
+            required
+            rows="6"
+            value={form.body}
+            onChange={e =>
+              setForm({ ...form, body: e.target.value })
+            }
+          />
+        </label>
+
+        <label>
+          URL de imagen (opcional)
+          <input
+            type="url"
+            value={form.image_url}
+            onChange={e =>
+              setForm({ ...form, image_url: e.target.value })
+            }
+            placeholder="https://..."
+          />
+        </label>
+
+        <button className="button" type="submit">
+          Publicar noticia
+        </button>
+      </form>
+
+      {message && <p className="notice">{message}</p>}
+
+      <h2>Publicaciones existentes</h2>
+
+      <div className="admin-list">
+        {news.map(item => (
+          <article key={item.id}>
+            <div>
+              <strong>{item.title}</strong>
+              <small>
+                {item.created_at
+                  ? new Date(item.created_at).toLocaleDateString("es-PE")
+                  : ""}
+              </small>
+            </div>
+
+            <button
+              className="delete"
+              onClick={() => remove(item.id)}
+            >
+              Eliminar
+            </button>
+          </article>
+        ))}
+      </div>
+    </main>
+  );
+}
+
+// PRESENTACIÓN PRINCIPAL
+function Home() {
+  const [news, setNews] = useState(initialNews);
+
+  useEffect(() => {
+    fetch("/api/news")
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.news?.length) {
+          setNews(data.news);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <>
-      <header className="header">
-        <div className="container nav-container">
-          <a href="#inicio" className="brand" onClick={cerrarMenu}>
-            <img
-              src="/insignia.png"
-              alt="Insignia Manuel de Mendiburu"
-              onError={(e) => {
-                e.currentTarget.style.display = "none";
-              }}
-            />
-            <div>
-              <strong>MANUEL DE MENDIBURU</strong>
-              <span>INSTITUCIÓN EDUCATIVA N.º 42223</span>
-            </div>
-          </a>
-
-          <button
-            className="menu-toggle"
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Abrir menú"
-          >
-            {menuOpen ? <X /> : <Menu />}
-          </button>
-
-          <nav className={menuOpen ? "nav active" : "nav"}>
-            {enlaces.map(([nombre, url]) => (
-              <a key={url} href={url} onClick={cerrarMenu}>
-                {nombre}
-              </a>
-            ))}
-            <a href="#contacto" className="nav-button" onClick={cerrarMenu}>
-              Contáctanos <ArrowUpRight size={16} />
-            </a>
-          </nav>
-        </div>
-      </header>
+      <Header />
 
       <main>
+        {/* PORTADA */}
         <section className="hero" id="inicio">
+          <img
+            src={IMAGES.portada}
+            alt=""
+            className="hero-image"
+            fetchPriority="high"
+          />
+
           <div className="hero-overlay"></div>
-          <div className="container hero-content">
-            <div className="hero-label">
-              <span></span> EDUCACIÓN • VALORES • FUTURO
-            </div>
+
+          <div className="hero-content">
+            <span className="eyebrow">
+              EDUCACIÓN · VALORES · FUTURO
+            </span>
 
             <h1>
-              Formamos el presente,
+              Formamos hoy,
               <br />
-              <span>construimos el futuro.</span>
+              <em>transformamos el mañana.</em>
             </h1>
 
             <p>
-              Bienvenidos a la Institución Educativa N.º 42223
-              Manuel de Mendiburu, un espacio dedicado al
-              aprendizaje, la formación y el desarrollo integral.
+              Bienvenidos a la Institución Educativa Manuel de Endiburu,
+              una comunidad comprometida con el aprendizaje y
+              el desarrollo integral.
             </p>
 
-            <div className="hero-actions">
-              <a href="#nosotros" className="btn-primary">
-                Conoce nuestra institución <ChevronRight size={19} />
-              </a>
-              <a href="#noticias" className="btn-outline">
-                Explorar noticias
-              </a>
-            </div>
-
-            <div className="hero-quote">
-              “Un mendiburiano jamás huye a un desafío inteligente”
-            </div>
-          </div>
-
-          <div className="hero-bottom">
-            <span>INSTITUCIÓN EDUCATIVA MANUEL DE MENDIBURU</span>
-            <span>TACNA · PERÚ</span>
-          </div>
-        </section>
-
-        <section className="quick-section">
-          <div className="container quick-grid">
-            <a href="#nosotros" className="quick-card">
-              <div className="quick-icon"><School /></div>
-              <div>
-                <strong>Nuestra institución</strong>
-                <span>Conoce quiénes somos</span>
-              </div>
-              <ChevronRight />
-            </a>
-
-            <a href="#academico" className="quick-card">
-              <div className="quick-icon"><BookOpen /></div>
-              <div>
-                <strong>Área académica</strong>
-                <span>Información educativa</span>
-              </div>
-              <ChevronRight />
-            </a>
-
-            <a href="#noticias" className="quick-card">
-              <div className="quick-icon"><Newspaper /></div>
-              <div>
-                <strong>Comunicados</strong>
-                <span>Noticias y novedades</span>
-              </div>
-              <ChevronRight />
+            <a className="button" href="#nosotros">
+              Conoce nuestra institución
             </a>
           </div>
-        </section>
 
-        <section className="about section" id="nosotros">
-          <div className="container about-grid">
-            <div className="about-image">
-              <img
-                src="/colegio.jpg"
-                alt="Instalaciones de la institución educativa"
-                onError={(e) => {
-                  e.currentTarget.src =
-                    "https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=1000";
-                }}
-              />
-              <div className="image-caption">
-                <GraduationCap size={25} />
-                <span>Educación para el futuro</span>
-              </div>
-            </div>
-
-            <div className="about-content">
-              <span className="section-tag">CONÓCENOS</span>
-              <h2>Una institución comprometida con la educación</h2>
-              <p>
-                La Institución Educativa Manuel de Mendiburu
-                promueve una educación orientada al aprendizaje,
-                la convivencia, el respeto y la formación de
-                ciudadanos responsables.
-              </p>
-
-              <div className="about-points">
-                <div>
-                  <span className="point-icon">01</span>
-                  <div>
-                    <strong>Misión</strong>
-                    <p>
-                      Brindar una formación integral basada en
-                      conocimientos, valores y responsabilidad.
-                    </p>
-                  </div>
-                </div>
-
-                <div>
-                  <span className="point-icon">02</span>
-                  <div>
-                    <strong>Visión</strong>
-                    <p>
-                      Ser una comunidad educativa que promueva
-                      el desarrollo y las oportunidades de sus estudiantes.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <a href="#contacto" className="text-link">
-                Más información <ArrowUpRight size={17} />
-              </a>
-            </div>
-          </div>
-        </section>
-
-        <section className="academic section" id="academico">
-          <div className="container">
-            <div className="section-heading">
-              <span className="section-tag">NUESTRA COMUNIDAD</span>
-              <h2>Espacios para aprender y crecer</h2>
-              <p>
-                Una educación que integra conocimientos,
-                participación y desarrollo personal.
-              </p>
-            </div>
-
-            <div className="academic-grid">
-              <article className="academic-card">
-                <BookOpen />
-                <h3>Aprendizaje</h3>
-                <p>
-                  Promovemos el desarrollo de competencias y
-                  conocimientos para la vida.
-                </p>
-              </article>
-
-              <article className="academic-card">
-                <GraduationCap />
-                <h3>Formación integral</h3>
-                <p>
-                  Impulsamos valores, creatividad y pensamiento crítico.
-                </p>
-              </article>
-
-              <article className="academic-card">
-                <School />
-                <h3>Comunidad educativa</h3>
-                <p>
-                  Fortalecemos el trabajo conjunto entre estudiantes,
-                  docentes y familias.
-                </p>
-              </article>
-            </div>
-          </div>
-        </section>
-
-        <section className="news section" id="noticias">
-          <div className="container">
-            <div className="news-heading">
-              <div>
-                <span className="section-tag">ACTUALIDAD</span>
-                <h2>Noticias y novedades</h2>
-                <p>Conoce las actividades de nuestra institución.</p>
-              </div>
-              <a href="#contacto" className="text-link">
-                Información institucional <ArrowUpRight size={17} />
-              </a>
-            </div>
-
-            <div className="news-grid">
-              {noticias.map((noticia, index) => (
-                <article className="news-card" key={index}>
-                  <div className="news-image">
-                    <img src={noticia.imagen} alt={noticia.titulo} />
-                  </div>
-                  <div className="news-body">
-                    <div className="news-meta">
-                      <span>{noticia.categoria}</span>
-                      <small>{noticia.fecha}</small>
-                    </div>
-                    <h3>{noticia.titulo}</h3>
-                    <p>{noticia.descripcion}</p>
-                    <a href="#contacto">
-                      Más información <ChevronRight size={16} />
-                    </a>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="gallery section" id="galeria">
-          <div className="container">
-            <div className="section-heading">
-              <span className="section-tag">NUESTROS RECUERDOS</span>
-              <h2>Galería institucional</h2>
-              <p>
-                Momentos y experiencias de nuestra comunidad educativa.
-              </p>
-            </div>
-            <div className="gallery-grid">
-              <img src="https://images.unsplash.com/photo-1509062522246-3755977927d7?w=900" alt="Actividad escolar" />
-              <img src="https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=900" alt="Estudiantes aprendiendo" />
-              <img src="https://images.unsplash.com/photo-1529390079861-591de354faf5?w=900" alt="Comunidad educativa" />
-            </div>
-          </div>
-        </section>
-
-        <section className="contact section" id="contacto">
-          <div className="container contact-content">
+          <div className="hero-note">
+            <span>01</span>
             <div>
-              <span className="section-tag">ESTAMOS PARA INFORMARTE</span>
-              <h2>Conectemos con nuestra comunidad</h2>
+              Una comunidad educativa
+              <br />
+              que inspira y acompaña
+            </div>
+          </div>
+        </section>
+
+        {/* NOSOTROS */}
+        <section className="welcome section" id="nosotros">
+          <div className="section-kicker">
+            NUESTRA INSTITUCIÓN
+          </div>
+
+          <div className="welcome-grid">
+            <div>
+              <h2>
+                Un lugar para
+                <br />
+                <em>aprender y crecer.</em>
+              </h2>
+
+              <img
+                src={IMAGES.colegio}
+                alt="Instalaciones de la institución educativa"
+                className="section-image"
+                loading="lazy"
+              />
+            </div>
+
+            <div>
+              <p className="lead">
+                Creemos en una educación que brinda oportunidades,
+                fortalece valores y prepara a nuestros estudiantes
+                para afrontar los desafíos del futuro.
+              </p>
+
               <p>
-                Para consultas e información institucional,
-                puedes comunicarte con nuestra institución.
+                Trabajamos junto a las familias y la comunidad
+                para construir experiencias de aprendizaje
+                significativas en un ambiente de respeto,
+                participación y mejora continua.
               </p>
             </div>
-            <div className="contact-items">
-              <div><MapPin /> <span>Tacna, Perú</span></div>
-              <div><Mail /> <span>Correo institucional por confirmar</span></div>
-              <div><Phone /> <span>Teléfono institucional por confirmar</span></div>
+          </div>
+        </section>
+
+        {/* PROPUESTA EDUCATIVA */}
+        <section className="values section" id="propuesta">
+          <div className="section-kicker light">
+            NUESTRO COMPROMISO
+          </div>
+
+          <h2>Educación con propósito</h2>
+
+          <div className="value-grid">
+            <article>
+              <span>01</span>
+              <h3>Aprendizaje</h3>
+              <p>
+                Promovemos la curiosidad, el pensamiento crítico
+                y el desarrollo de capacidades.
+              </p>
+            </article>
+
+            <article>
+              <span>02</span>
+              <h3>Valores</h3>
+              <p>
+                Fomentamos el respeto, la responsabilidad,
+                la solidaridad y la convivencia.
+              </p>
+            </article>
+
+            <article>
+              <span>03</span>
+              <h3>Comunidad</h3>
+              <p>
+                Impulsamos la participación de estudiantes,
+                familias y docentes.
+              </p>
+            </article>
+          </div>
+        </section>
+
+        {/* GALERÍA */}
+        <section className="gallery section" id="galeria">
+          <div className="section-kicker">
+            NUESTRA COMUNIDAD
+          </div>
+
+          <h2>Momentos de nuestra institución</h2>
+
+          <p className="gallery-description">
+            Conoce algunas de las actividades y experiencias
+            que forman parte de nuestra comunidad educativa.
+          </p>
+
+          <div className="gallery-grid">
+            <article className="gallery-item">
+              <img
+                src={IMAGES.estudiantes}
+                alt="Estudiantes de la institución"
+                loading="lazy"
+              />
+              <div className="gallery-caption">
+                <h3>Nuestros estudiantes</h3>
+              </div>
+            </article>
+
+            <article className="gallery-item">
+              <img
+                src={IMAGES.docentes}
+                alt="Equipo docente"
+                loading="lazy"
+              />
+              <div className="gallery-caption">
+                <h3>Nuestros docentes</h3>
+              </div>
+            </article>
+
+            <article className="gallery-item">
+              <img
+                src={IMAGES.actividades}
+                alt="Actividades escolares"
+                loading="lazy"
+              />
+              <div className="gallery-caption">
+                <h3>Actividades escolares</h3>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        {/* NOTICIAS */}
+        <section className="news section" id="noticias">
+          <div className="news-heading">
+            <div>
+              <div className="section-kicker">
+                ACTUALIDAD
+              </div>
+              <h2>Noticias y comunicados</h2>
             </div>
+
+            <span className="news-count">
+              {String(news.length).padStart(2, "0")} PUBLICACIONES
+            </span>
+          </div>
+
+          <div className="news-grid">
+            {news.map(item => (
+              <article className="news-card" key={item.id}>
+                {item.image_url ? (
+                  <img
+                    src={item.image_url}
+                    alt={item.title}
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="news-placeholder">
+                    <img
+                      src={IMAGES.logo}
+                      alt="Insignia institucional"
+                    />
+                  </div>
+                )}
+
+                <div className="news-card-content">
+                  <small>
+                    {item.created_at
+                      ? new Date(item.created_at).toLocaleDateString("es-PE")
+                      : "Institución educativa"}
+                  </small>
+
+                  <h3>{item.title}</h3>
+                  <p>{item.summary}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {/* CONTACTO */}
+        <section className="contact section" id="contacto">
+          <div>
+            <div className="section-kicker light">
+              ESTAMOS PARA ATENDERTE
+            </div>
+
+            <h2>
+              Conectemos con
+              <br />
+              <em>nuestra comunidad.</em>
+            </h2>
+          </div>
+
+          <div className="contact-info">
+            <p>
+              Pronto encontrarás aquí nuestros canales
+              oficiales de atención.
+            </p>
+
+            <p>
+              <strong>
+                Institución Educativa Manuel de Endiburu
+              </strong>
+              <br />
+              Dirección · Teléfono · Correo institucional
+            </p>
           </div>
         </section>
       </main>
 
-      <footer className="footer">
-        <div className="container footer-content">
-          <div className="footer-brand">
-            <strong>MANUEL DE MENDIBURU</strong>
-            <span>Institución Educativa N.º 42223</span>
+      {/* PIE DE PÁGINA */}
+      <footer>
+        <a className="brand footer-brand" href="#inicio">
+          <img
+            src={IMAGES.logo}
+            alt="Insignia institucional"
+            className="brand-logo"
+          />
+
+          <div>
+            <strong>MANUEL DE ENDIBURU</strong>
+            <span>INSTITUCIÓN EDUCATIVA</span>
           </div>
-          <p>© {new Date().getFullYear()} Manuel de Mendiburu. Todos los derechos reservados.</p>
-          <a href="#inicio"><Home size={17} /> Volver arriba</a>
-        </div>
+        </a>
+
+        <span>
+          © {new Date().getFullYear()} · Todos los derechos reservados.
+        </span>
+
+        <a href="/admin">Administración</a>
       </footer>
     </>
   );
 }
 
-export default App;
+// APLICACIÓN
+export default function App() {
+  return window.location.pathname.startsWith("/admin")
+    ? <Admin />
+    : <Home />;
+}
